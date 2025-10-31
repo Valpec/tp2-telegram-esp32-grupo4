@@ -4,7 +4,7 @@
 
 const char* SSID = "";
 const char* PASS = "";
-const char* BOT_TOKEN  = "8494525881:AAGOe6n17k_jzROlVbVr2CsNoz5AOUSTmiM";
+const char* BOT_TOKEN  = "";
 const unsigned long tiempo = 1000; //tiempo medio entre mensajes de escaneo
 
 const int PIN_RELAY = 26;
