@@ -1,134 +1,87 @@
+#include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
+#include "Device.h"
+#include "TelegramBot.h" // 🔹 MODIFICADO: incluye el header del nuevo archivo
 
-const char* SSID = "";
-const char* PASS = "";
-const char* BOT_TOKEN  = "";
-const unsigned long tiempo = 1000; //tiempo medio entre mensajes de escaneo
+// ======= PINES =======
+#define PIN_LED_VENTILADOR 23
+#define PIN_LED_RIEGO 2
+#define PIN_POTENCIOMETRO 32
+#define PIN_SENSOR_DHT 33
 
-const int PIN_RELAY = 26;
+// ======= OBJETO PRINCIPAL =======
+Device invernadero(128, 64, -1, PIN_SENSOR_DHT, DHT22);
 
-//Token de Telegram BOT se obtenienen desde Botfather en telegram
-WiFiClientSecure secured_client;
-UniversalTelegramBot bot(BOT_TOKEN, secured_client);
-unsigned long tiempoAnterior; //última vez que se realizó el análisis de mensajes
+// ======= VARIABLES =======
+bool mostrarSensorActual = 0;
+bool mostrarPotActual = 0;
+bool mostrarOLEDActual = 0;
 
-String chat_id;
-const char * ID_Chat = "tu_id_chat";//ID_Chat se obtiene de telegram
-void mensajesNuevos(int numerosMensajes)
-{
-  for (int i = 0; i < numerosMensajes; i++)
-  {
-    String chat_id = bot.messages[i].chat_id;
-    String text = bot.messages[i].text;
-    if (text == "start")
-    {
-      String welcome = "Bot de control de RELAY.\n";
-      welcome += "start - Ver los comandos disponibles" "\n";
-      welcome += "led23on - Prender led verde de la placa de desarrollo" "\n";
-      welcome += "led23off - Apagar led verde de la placa de desarrollo" "\n";
-      welcome += "led2on - Prender led azul de la placa de desarrollo" "\n";
-      welcome += "led2off - Apagar led azul de la placa de desarrollo" "\n";
-      welcome += "dth22 - Informe de valores de humedad y temperatura del sensor" "\n";
-      welcome += "pote - Informe de valor de voltaje según lectura del potenciometro" "\n";
-      welcome += "platiot - Enviar valores de humedad y temperatura a ThingSpeak" "\n";
-      welcome += "displayled - Estado actual del led" "\n";
-      welcome += "displaypot - Estado actual del potenciometro" "\n";
-      welcome += "displaysensor - Estado actual del sensor";
-      bot.sendMessage(chat_id, welcome, "");
-    }
- 
-    if (text == "led23on")
-    {
-      
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
+// ======= PROTOTIPOS =======
+void configurarEntradasSalidas();
 
-    if (text == "led23off")
-    {
-      digitalWrite(PIN_RELAY, LOW); // 
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
-
-    if (text == "led2on")
-    {
-      digitalWrite(PIN_RELAY, LOW); // 
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
-
-    if (text == "led2off")
-    {
-      digitalWrite(PIN_RELAY, LOW); // 
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
-
-    if (text == "dth22")
-    {
-      digitalWrite(PIN_RELAY, LOW); // 
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
-    if (text == "pote")
-    {
-      digitalWrite(PIN_RELAY, LOW); // 
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
-    if (text == "platiot")
-    {
-      digitalWrite(PIN_RELAY, LOW); // 
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
-    if (text == "displayled")
-    {
-      digitalWrite(PIN_RELAY, LOW); // 
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
-    if (text == "displaypot")
-    {
-      digitalWrite(PIN_RELAY, LOW); // 
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
-    if (text == "displaysensor")
-    {
-      digitalWrite(PIN_RELAY, LOW); // 
-      bot.sendMessage(chat_id, "RELAY apagado!", "");
-    }
-
-  }
-}
- 
-void setup()
-{
+// ======= SETUP =======
+void setup() {
   Serial.begin(9600);
-  pinMode(PIN_RELAY, OUTPUT); //inicializar  pin 12 digital como salida.
-  // Intenta conectarse a la red wifi
-  Serial.print("Conectando a la red ");
-  WiFi.begin(SSID, PASS);
-  secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT); //Agregar certificado raíz para api.telegram.org
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    Serial.print(".");
-    delay(500);
-  }
-  Serial.print("\nConectado a la red wifi. Dirección IP: ");
-  Serial.println(WiFi.localIP());
+  configurarEntradasSalidas();
+
+  // 🔹 MODIFICADO: inicializa Telegram desde la librería
+  // Inicializa WiFi y Telegram
+  iniciarTelegram();
+
+  invernadero.begin();
+  Serial.println("🌱 Invernadero iniciado");
+  invernadero.showDisplay("Bienvenido!\nDirigase al bot de Telegram");
 }
- 
-void loop()
-{
-  //Verifica si hay datos nuevos en telegram cada 1 segundo
-  if (millis() - tiempoAnterior > tiempo)
-  {
-    int numerosMensajes = bot.getUpdates(bot.last_message_received + 1);
- 
-    while (numerosMensajes)
-    {
-      Serial.println("Comando recibido");
-      mensajesNuevos(numerosMensajes);
-      numerosMensajes = bot.getUpdates(bot.last_message_received + 1);
-    }
- 
-    tiempoAnterior = millis();
+
+// ======= LOOP =======
+void loop() {
+  // Lectura de sensores
+  float temp = invernadero.readTemp();
+  float hum = invernadero.readHum();
+  float pot = analogRead(PIN_POTENCIOMETRO) * (3.3 / 4095.0);
+
+  // 🔹 MODIFICADO: manejo de Telegram movido a librería
+  // actualizarTelegram espera: temp, hum, pot, led23, led2
+  bool led23 = digitalRead(PIN_LED_VENTILADOR) == HIGH;
+  bool led2 = digitalRead(PIN_LED_RIEGO) == HIGH;
+  actualizarTelegram(temp, hum, pot, led23, led2);
+
+  // Mostrar sensor
+  if(mostrarSensorActual){
+    invernadero.showDisplay("Temperatura: " + String(temp, 1) + " C\nHumedad: " + String(hum, 1) + " %");
+  } else if(mostrarPotActual){
+    invernadero.showDisplay("Potenciometro:\n" + String(pot, 2) + " V");
+  } else if(mostrarOLEDActual){
+    invernadero.showDisplay("LED Verde: " + String(led23 ? "Encendido" : "Apagado") + "\nLED Azul: " + String(led2 ? "Encendido" : "Apagado"));
   }
-  
+
+  delay(100);
+}
+
+// ======= FUNCIONES AUXILIARES =======
+void configurarEntradasSalidas() {
+  pinMode(PIN_LED_VENTILADOR, OUTPUT);
+  pinMode(PIN_LED_RIEGO, OUTPUT);
+  pinMode(PIN_POTENCIOMETRO, INPUT);
+}
+
+void useSensor(){
+  mostrarSensorActual = 1;
+  mostrarPotActual = 0;
+  mostrarOLEDActual = 0;
+}
+
+void usePot(){
+  mostrarSensorActual = 0;
+  mostrarPotActual = 1;
+  mostrarOLEDActual = 0;
+}
+
+void useOLED(){
+  mostrarPotActual = 0;
+  mostrarSensorActual = 0;
+  mostrarOLEDActual = 1;
 }
