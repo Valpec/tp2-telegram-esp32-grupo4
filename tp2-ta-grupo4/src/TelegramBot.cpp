@@ -11,10 +11,10 @@ extern void usePot();
 extern void useOLED();
 
 // ---------------- CONFIGURACIÓN ----------------
-// aca van las contraseñas :: no pusheadas !
+//contraseñas
 
 
-const unsigned long INTERVALO_TELEGRAM = 1000;
+const unsigned long INTERVALO_TELEGRAM = 500;
 
 WiFiClientSecure secured_client;
 UniversalTelegramBot bot(BOT_TOKEN, secured_client);
@@ -38,11 +38,6 @@ void iniciarTelegram() {
   Serial.println("\n✅ WiFi conectado: " + WiFi.localIP().toString());
 }
 
-// pequeño wrapper para mantener compatibilidad si otros ficheros usan iniciarBot
-void iniciarBot() {
-  // actualmente la inicialización principal se realiza en iniciarTelegram
-  ultimaConsulta = 0;
-}
 
 // ---------------- PROCESAMIENTO DE MENSAJES ----------------
 void manejarComando(String chat_id, String text, float temp, float hum, float pot, bool led23, bool led2) {
@@ -51,26 +46,23 @@ void manejarComando(String chat_id, String text, float temp, float hum, float po
   Serial.println(String("[Telegram] Mensaje recibido de ") + chat_id + ": '" + rawText + "' -> procesando '" + text + "'");
 
   if (text == "/start") {
-    String msg = "👋 Bienvenido al *Bot del Invernadero*\n\n";
+    String msg = "👋 Bienvenido al *Bot de Tecnologías de la Automatización!*\n\n";
     msg += "Selecciona una opción:\n";
     
-    // Crear teclado con botones
-    String keyboardJson = R"(
-    {
-      "keyboard": [
-        [{"text": "💡 LED Verde ON"}, {"text": "💡 LED Verde OFF"}],
-        [{"text": "🔵 LED Azul ON"}, {"text": "🔵 LED Azul OFF"}],
-        [{"text": "🌡 Sensor DHT22"}, {"text": "⚡ Potenciómetro"}],
-        [{"text": "📊 Display LED"}, {"text": "📊 Display Pot"}],
-        [{"text": "📊 Display Sensor"}, {"text": "🌍 Enviar a IoT"}]
-      ],
-      "one_time_keyboard": true,
-      "resize_keyboard": true
-    }
-    )";
-    
-    bot.sendMessageWithReplyKeyboard(chat_id, msg, "Markdown", keyboardJson, true);
-  }
+    String keyboardJson = R"([
+      [{"text":"💡 LED Verde ON","callback_data":"/led23on"}, {"text":"💡 LED Verde OFF","callback_data":"/led23off"}],
+      [{"text":"🔵 LED Azul ON","callback_data":"/led2on"}, {"text":"🔵 LED Azul OFF","callback_data":"/led2off"}],
+      [{"text":"🌡 Sensor DHT22","callback_data":"/dht22"}, {"text":"⚡ Potenciómetro","callback_data":"/pote"}],
+      [{"text":"📊 Display LED","callback_data":"/displayled"}, {"text":"📊 Display Pot","callback_data":"/displaypot"}],
+      [{"text":"📊 Display Sensor","callback_data":"/displaysensor"}, {"text":"🌍 Enviar a IoT","callback_data":"/platiot"}]
+    ])";
+
+    Serial.println("[Telegram] Enviando inline keyboard JSON:\n" + keyboardJson);
+    bool sentInline = bot.sendMessageWithInlineKeyboard(chat_id, msg, "Markdown", keyboardJson, 0);
+    Serial.println(String("[Telegram] sendMessageWithInlineKeyboard returned: ") + (sentInline ? "true" : "false"));
+}
+
+  
 
   else if (text == "💡 led verde on" || text == "/led23on") {
     digitalWrite(PIN_LED_VERDE, HIGH);
@@ -102,6 +94,7 @@ void manejarComando(String chat_id, String text, float temp, float hum, float po
 
   else if (text == "🌍 enviar a iot" || text == "/platiot") {
     // Intento de enviar a ThingSpeak (requiere configurar THINGSPEAK_WRITE_API_KEY)
+    
 #ifndef THINGSPEAK_WRITE_API_KEY
     bot.sendMessage(chat_id, "⚠️ ThingSpeak no configurado. Defina THINGSPEAK_WRITE_API_KEY en el código.");
 #else

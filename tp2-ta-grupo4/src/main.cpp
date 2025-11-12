@@ -27,13 +27,13 @@ void setup() {
   Serial.begin(9600);
   configurarEntradasSalidas();
 
-  // 🔹 MODIFICADO: inicializa Telegram desde la librería
   // Inicializa WiFi y Telegram
   iniciarTelegram();
 
   invernadero.begin();
   Serial.println("🌱 Invernadero iniciado");
-  invernadero.showDisplay("Bienvenido!\nDirigase al bot de Telegram");
+  invernadero.showDisplay("Bienvenido! \n\n ^_^ \n\nEsperando instrucciones");
+
 }
 
 // ======= LOOP =======
@@ -43,8 +43,6 @@ void loop() {
   float hum = invernadero.readHum();
   float pot = analogRead(PIN_POTENCIOMETRO) * (3.3 / 4095.0);
 
-  // 🔹 MODIFICADO: manejo de Telegram movido a librería
-  // actualizarTelegram espera: temp, hum, pot, led23, led2
   bool led23 = digitalRead(PIN_LED_VENTILADOR) == HIGH;
   bool led2 = digitalRead(PIN_LED_RIEGO) == HIGH;
   actualizarTelegram(temp, hum, pot, led23, led2);
